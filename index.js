@@ -13,21 +13,23 @@ app.use(express.json());
 
 
 const verifyToken = (req, res, next) => {
-  if(!req.headers.authorization){
-    return res.status(401).send({message: 'Forbidden Access'})
+  if (!req.headers.authorization) {
+    return res.status(401).send({ message: 'Forbidden Access' })
   }
   const token = req.headers.authorization.split(' ')[1];
-  if(!token){
-    return res.status(401).send({message: 'Forbidden Access'})
+  
+  if (!token) {
+    return res.status(401).send({ message: 'Forbidden Access' })
   }
   jwt.verify(token, process.env.ACCESS_TOKEN, (err, decoded) => {
-    if(err){
-      return res.status(401).send({message:'Forbidden Access'})
+    if (err) {
+      return res.status(401).send({ message: 'Forbidden Access' })
     }
     req.user = decoded;
+    // console.log('Yes Verifyed', decoded);
     next()
   })
-    
+
 }
 
 
@@ -46,18 +48,35 @@ async function run() {
   try {
 
     const userCollection = client.db('fitness').collection('users');
+    const classCollection = client.db('fitness').collection('classs');
     const trainerCollection = client.db('fitness').collection('trainers');
-  // User Role
+    const appliedTrainerCollection = client.db('fitness').collection('appliedTrainers');
 
-  app.get('/role/:email', async(req, res) => {
-    const email = req.params.email;
-    const query = { email};
-    console.log(email, query);
-    const result = await userCollection.findOne(query);
-    res.send(result)
-  })
+    // Verify Admin 
 
-  // User
+    const verifyAdmin = async (req, res, next) => {
+      const email = req.user.email;
+      
+      const query = {email};
+      const result = await userCollection.findOne(query)
+      
+      if(result.role !== 'admin'){
+       return  res.status(401).send({message:'Forbidden Access'})
+      }
+      next()
+    }
+
+    // User Role
+
+    app.get('/role/:email', async (req, res) => {
+      const email = req.params.email;
+      const query = { email };
+      // console.log(email, query);
+      const result = await userCollection.findOne(query);
+      res.send(result)
+    })
+
+    // User
 
     app.put('/user', async (req, res) => {
       const user = req.body;
@@ -65,7 +84,7 @@ async function run() {
       const isExist = await userCollection.findOne(query);
       // console.log(isExist);
       if (isExist) {
-        if(user.status === 'requested'){
+        if (user.status === 'requested') {
           const updatedDoc = {
             $set: {
               status: user?.status
@@ -73,7 +92,7 @@ async function run() {
           }
           const result = await userCollection.updateOne(query, updatedDoc)
         }
-        else if(!isExist.displayName && user.displayName){
+        else if (!isExist.displayName && user.displayName) {
           const updatedDoc = {
             $set: {
               name: user?.displayName,
@@ -81,44 +100,94 @@ async function run() {
             }
           }
           const result = await userCollection.updateOne(query, updatedDoc)
-           res.send(result)
+          res.send(result)
         }
-        else{
-          return res.send({message: 'Can not'})
+        else {
+          return res.send({ message: 'Can not' })
         }
       }
-  else{
-    const optiopns = { upsert: true }
-    const updatedDoc = {
-      $set: {
-        ...user
+      else {
+        const optiopns = { upsert: true }
+        const updatedDoc = {
+          $set: {
+            ...user
+          }
+        }
+        const result = await userCollection.updateOne(query, updatedDoc, optiopns);
+        res.send(result)
       }
-    }
-    const result = await userCollection.updateOne(query, updatedDoc, optiopns);
-    res.send(result)
-  }
+    })
+
+    app.post('/user', async (req, res) => {
+      const user = req.body;
+      const result = await userCollection.insertOne(user);
+      res.send(result)
     })
 
     // Get All Trainer
 
-    app.get('/trainer', async(req, res) => {
-     
+    app.get('/trainer', async (req, res) => {
+
       const result = await trainerCollection.find().toArray();
       res.send(result)
-      
+
     })
 
-    app.get('/trainer/:id', async(req, res) => {
+    app.get('/trainer/:id', async (req, res) => {
       const id = req.params.id;
-      const query = { _id: new ObjectId(id)}
+      const query = { _id: new ObjectId(id) }
       const result = await trainerCollection.findOne(query);
       res.send(result)
     })
 
-    app.post('/jwt', async(req, res) => {
+    app.delete('/trainer/:id', async (req, res) => {
+      const id = req.params.id;
+      const emailQuery = { email: req.query.email };
+
+      // console.log('in delete',id, email);
+      const updatedDoc = {
+        $set: {
+          role: 'member'
+        }
+      }
+      const query = { _id: new ObjectId(id) };
+      const updatedResult = await userCollection.updateOne(emailQuery, updatedDoc);
+      const deletedResult = await trainerCollection.deleteOne(query);
+      res.send(deletedResult)
+
+    })
+
+    // Applied Trainer
+
+    app.get('/applied-trainers', verifyToken, verifyAdmin, async (req, res) => {
+      const result = await appliedTrainerCollection.find().toArray();
+      res.send(result);
+    })
+
+    app.post('/applied-trainers', async (req, res) => {
       const user = req.body;
-      const token = jwt.sign(user, process.env.ACCESS_TOKEN, {expiresIn: '1h'})
-      res.send({token})
+      const result = await appliedTrainerCollection.insertOne(user);
+      res.send(result)
+    })
+
+    // Classess
+
+    app.get('/classes', async (req, res) => {
+      const result = await classCollection.find().toArray();
+      res.send(result);
+    })
+
+    app.post('/classes', verifyToken, async (req, res) => {
+      const details = req.body;
+      const result = await classCollection.insertOne(details);
+      res.send(result)
+    })
+
+    app.post('/jwt', async (req, res) => {
+      const user = req.body;
+      
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN, { expiresIn: '1h' })
+      res.send({ token })
     })
 
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
