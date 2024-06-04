@@ -4,6 +4,7 @@ const app = express();
 const port = process.env.PORT || 8000;
 require('dotenv').config()
 const jwt = require('jsonwebtoken');
+const stripe = require('stripe')(process.env.STRIPE_KEY)
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 app.use(cors({
   origin: ['http://localhost:5173', 'http://localhost:5174'],
@@ -51,6 +52,7 @@ async function run() {
     const classCollection = client.db('fitness').collection('classs');
     const trainerCollection = client.db('fitness').collection('trainers');
     const appliedTrainerCollection = client.db('fitness').collection('appliedTrainers');
+    const paymentCollection = client.db('fitness').collection('payments');
 
     // Verify Admin 
 
@@ -142,6 +144,13 @@ async function run() {
 
     app.post('/trainers', async(req, res) => {
       const user = req.body;
+      const query = { email: user.email}
+      const updatedDoc = {
+        $set: {
+          role: 'trainer'
+        }
+      }
+      const roleUpdated = await userCollection.updateOne(query, updatedDoc);
       const result = await trainerCollection.insertOne(user);
       res.send(result)
     })
@@ -203,6 +212,29 @@ async function run() {
       
       const token = jwt.sign(user, process.env.ACCESS_TOKEN, { expiresIn: '1h' })
       res.send({ token })
+    })
+
+    // Payment
+    app.post('/create-payment-intent', verifyToken, async (req, res) => {
+      const { price } = req.body;
+      
+      const totalPrice = parseFloat(price * 100)
+      if (!price) return res.send({ message: 'Invalid price' });
+
+      const { client_secret } = await stripe.paymentIntents.create({
+        amount: totalPrice,
+        currency: "usd",
+        automatic_payment_methods: {
+          enabled: true,
+        },
+      })
+      res.send({ clientSecret: client_secret })
+    })
+  
+    app.post('/payments', async(req, res) => {
+      const user = req.body;
+      const result = await paymentCollection.insertOne(user);
+      res.send(result)
     })
 
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
