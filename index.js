@@ -61,7 +61,7 @@ async function run() {
       const result = await userCollection.findOne(query)
       
       if(result.role !== 'admin'){
-       return  res.status(401).send({message:'Forbidden Access'})
+       return  res.status(401).send({message:'Forbidden Access!'})
       }
       next()
     }
@@ -140,6 +140,12 @@ async function run() {
       res.send(result)
     })
 
+    app.post('/trainers', async(req, res) => {
+      const user = req.body;
+      const result = await trainerCollection.insertOne(user);
+      res.send(result)
+    })
+    
     app.delete('/trainer/:id', async (req, res) => {
       const id = req.params.id;
       const emailQuery = { email: req.query.email };
@@ -160,7 +166,8 @@ async function run() {
     // Applied Trainer
 
     app.get('/applied-trainers', verifyToken, verifyAdmin, async (req, res) => {
-      const result = await appliedTrainerCollection.find().toArray();
+      const query = { status: 'pending'}
+      const result = await appliedTrainerCollection.find(query).toArray();
       res.send(result);
     })
 
@@ -168,6 +175,14 @@ async function run() {
       const user = req.body;
       const result = await appliedTrainerCollection.insertOne(user);
       res.send(result)
+    })
+
+    app.delete('/applied-trainers/:id', async(req, res) => {
+      const id = req.params.id;
+      console.log(id);
+      const query = { _id: new ObjectId(id)};
+      const result = await appliedTrainerCollection.deleteOne(query);
+      res.send(result);
     })
 
     // Classess
