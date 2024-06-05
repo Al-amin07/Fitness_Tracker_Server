@@ -18,7 +18,7 @@ const verifyToken = (req, res, next) => {
     return res.status(401).send({ message: 'Forbidden Access' })
   }
   const token = req.headers.authorization.split(' ')[1];
-  
+
   if (!token) {
     return res.status(401).send({ message: 'Forbidden Access' })
   }
@@ -53,17 +53,18 @@ async function run() {
     const trainerCollection = client.db('fitness').collection('trainers');
     const appliedTrainerCollection = client.db('fitness').collection('appliedTrainers');
     const paymentCollection = client.db('fitness').collection('payments');
+    const subscriptionCollection = client.db('fitness').collection('subscriptions');
 
     // Verify Admin 
 
     const verifyAdmin = async (req, res, next) => {
       const email = req.user.email;
-      
-      const query = {email};
+
+      const query = { email };
       const result = await userCollection.findOne(query)
-      
-      if(result.role !== 'admin'){
-       return  res.status(401).send({message:'Forbidden Access!'})
+
+      if (result.role !== 'admin') {
+        return res.status(401).send({ message: 'Forbidden Access!' })
       }
       next()
     }
@@ -142,9 +143,9 @@ async function run() {
       res.send(result)
     })
 
-    app.post('/trainers', async(req, res) => {
+    app.post('/trainers', async (req, res) => {
       const user = req.body;
-      const query = { email: user.email}
+      const query = { email: user.email }
       const updatedDoc = {
         $set: {
           role: 'trainer'
@@ -154,7 +155,7 @@ async function run() {
       const result = await trainerCollection.insertOne(user);
       res.send(result)
     })
-    
+
     app.delete('/trainer/:id', async (req, res) => {
       const id = req.params.id;
       const emailQuery = { email: req.query.email };
@@ -175,7 +176,7 @@ async function run() {
     // Applied Trainer
 
     app.get('/applied-trainers', verifyToken, verifyAdmin, async (req, res) => {
-      const query = { status: 'pending'}
+      const query = { status: 'pending' }
       const result = await appliedTrainerCollection.find(query).toArray();
       res.send(result);
     })
@@ -186,10 +187,10 @@ async function run() {
       res.send(result)
     })
 
-    app.delete('/applied-trainers/:id', async(req, res) => {
+    app.delete('/applied-trainers/:id', async (req, res) => {
       const id = req.params.id;
       console.log(id);
-      const query = { _id: new ObjectId(id)};
+      const query = { _id: new ObjectId(id) };
       const result = await appliedTrainerCollection.deleteOne(query);
       res.send(result);
     })
@@ -209,15 +210,23 @@ async function run() {
 
     app.post('/jwt', async (req, res) => {
       const user = req.body;
-      
+
       const token = jwt.sign(user, process.env.ACCESS_TOKEN, { expiresIn: '1h' })
       res.send({ token })
+    })
+
+    // Subscription
+
+    app.post('/subscription', async (req, res) => {
+      const data = req.body;
+      const result = await subscriptionCollection.insertOne(data);
+      res.send(result)
     })
 
     // Payment
     app.post('/create-payment-intent', verifyToken, async (req, res) => {
       const { price } = req.body;
-      
+
       const totalPrice = parseFloat(price * 100)
       if (!price) return res.send({ message: 'Invalid price' });
 
@@ -230,8 +239,8 @@ async function run() {
       })
       res.send({ clientSecret: client_secret })
     })
-  
-    app.post('/payments', async(req, res) => {
+
+    app.post('/payments', async (req, res) => {
       const user = req.body;
       const result = await paymentCollection.insertOne(user);
       res.send(result)
