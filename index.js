@@ -54,6 +54,7 @@ async function run() {
     const appliedTrainerCollection = client.db('fitness').collection('appliedTrainers');
     const paymentCollection = client.db('fitness').collection('payments');
     const subscriptionCollection = client.db('fitness').collection('subscriptions');
+    const testimonialCollection = client.db('fitness').collection('testimonials');
 
     // Verify Admin 
 
@@ -223,6 +224,18 @@ async function run() {
       res.send(result)
     })
 
+    app.get('/subscription', verifyToken, verifyAdmin, async(req, res) => {
+      const result = await subscriptionCollection.find().toArray();
+      res.send(result)
+    })
+    
+    // Rating
+
+    app.get('/review', async(req, res) => {
+      const result = await testimonialCollection.find().toArray();
+      res.send(result)
+    })
+
     // Payment
     app.post('/create-payment-intent', verifyToken, async (req, res) => {
       const { price } = req.body;
@@ -242,6 +255,21 @@ async function run() {
 
     app.post('/payments', async (req, res) => {
       const user = req.body;
+      const className = user.booked;
+      const singleClass = await classCollection.findOne(className)
+      if(className){
+        const query = { className: classess}
+        const optiopns = { upsert: true}
+        const updatedDoc = {
+          $set: {
+            booked : singleClass + 1 
+          }
+        }
+
+        const bookedResult = await classCollection.updateOne(query, updatedDoc, optiopns);
+        console.log('in Payment', bookedResult);
+      }
+      console.log('in payment', user.booked);
       const result = await paymentCollection.insertOne(user);
       res.send(result)
     })
