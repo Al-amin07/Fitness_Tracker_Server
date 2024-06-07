@@ -70,6 +70,18 @@ async function run() {
       next()
     }
 
+    const verifyTrainer = async (req, res, next) => {
+      const email = req.user.email;
+
+      const query = { email };
+      const result = await userCollection.findOne(query)
+
+      if (result.role !== 'trainer') {
+        return res.status(401).send({ message: 'Forbidden Access!' })
+      }
+      next()
+    }
+
     // User Role
 
     app.get('/role/:email', async (req, res) => {
@@ -147,6 +159,7 @@ async function run() {
     app.post('/trainers', async (req, res) => {
       const user = req.body;
       const query = { email: user.email }
+      
       const updatedDoc = {
         $set: {
           role: 'trainer'
@@ -174,6 +187,35 @@ async function run() {
 
     })
 
+    app.get('/trainers/:email', async(req, res) => {
+      const email = req.params.email;
+      // console.log(email);
+      // res.send({message: 'Suces'})
+      const query = { email: email};
+      const result = await trainerCollection.findOne(query);
+      res.send(result);
+    })
+
+
+    app.put('/trainer/slot/:email', async(req, res) => {
+      const email = req.params.email;
+      const slot = req.query.slot;
+      console.log('in Slot', email, slot);
+      const query = { email};
+      const result = await trainerCollection.findOne(query);
+      const newSlot = result.available_slot.filter(item => item !== slot)
+      console.log(newSlot);
+      const optiopns = {upsert: true}
+      const updatedDoc = {
+        $set: {
+          available_slot: [...newSlot]
+        }
+      }
+
+      const updatedResult = await trainerCollection.updateOne(query, updatedDoc, optiopns);
+      res.send(updatedResult)
+    })
+
     // Applied Trainer
 
     app.get('/applied-trainers', verifyToken, verifyAdmin, async (req, res) => {
@@ -188,9 +230,11 @@ async function run() {
       res.send(result)
     })
 
+ 
+
     app.delete('/applied-trainers/:id', async (req, res) => {
       const id = req.params.id;
-      console.log(id);
+      // console.log(id);
       const query = { _id: new ObjectId(id) };
       const result = await appliedTrainerCollection.deleteOne(query);
       res.send(result);
@@ -254,26 +298,81 @@ async function run() {
     })
 
     app.post('/payments', async (req, res) => {
-      const user = req.body;
-      const className = user.booked;
-      const singleClass = await classCollection.findOne(className)
-      if(className){
-        const query = { className: classess}
+      const {payment,bookedDetails, trainer} = req.body;
+      const filter = {className: payment.className};
+      // console.log('in Pay tr', payment);
+      // console.log('in Pay tr', bookedDetails);
+      // console.log('in Pay tr', trainer);
+      
+   const singleClass = await classCollection.findOne(filter);
+  //  console.log('class',singleClass);
+      if(payment.className){
+        const query = { className: payment.className}
         const optiopns = { upsert: true}
         const updatedDoc = {
           $set: {
-            booked : singleClass + 1 
+            booked : singleClass?.booked + 1 
           }
         }
 
         const bookedResult = await classCollection.updateOne(query, updatedDoc, optiopns);
-        console.log('in Payment', bookedResult);
+        // console.log('in Payment', bookedResult);
       }
-      console.log('in payment', user.booked);
-      const result = await paymentCollection.insertOne(user);
-      res.send(result)
+
+      const id = trainer._id;
+      const query = { _id : new ObjectId(id)}
+      const trainers = await trainerCollection.findOne(query)
+      let arr = [];
+      if(trainers?.bookingDetails.length > 0){
+        arr = [...trainers?.bookingDetails, bookedDetails]
+      }
+      else{
+        arr = [bookedDetails]
+      }
+
+      const optiopns = { upsert : true}
+      const updatedDoc = {
+        $set: {
+          bookingDetails: [...arr]
+        }
+      }
+
+      const bookedResult = await trainerCollection.updateOne(query, updatedDoc, optiopns)
+      const result = await paymentCollection.insertOne(payment);
+      res.send({result, bookedResult})
     })
 
+    app.put('/payments', async(req, res) => {
+      const {trainer, bookedDetails} = req.body;
+      // console.log('details',trainer, bookedDetails);
+      const id = trainer._id;
+      const filters = { _id: new ObjectId(id)}
+      
+      const trainers = await trainerCollection.findOne(filters)
+      // console.log('in trainer',trainers);
+      let arr = [];
+      if(trainers?.bookingDetails){
+        // console.log('inSide');
+          arr = [...trainers?.bookedDetails, bookedDetails]
+      }
+      else{
+        arr = [bookedDetails]
+      }
+      // console.log('in arr',arr);
+      const optiopns = { upsert: true}
+      const updatedDoc = {
+        $set: {
+          bookingDetails: arr
+        }
+      }
+
+      const booking = await trainerCollection.updateOne(filters, updatedDoc, optiopns)
+      // console.log('in Payment ',booking);
+      res.send(booking)
+      
+    })
+    // res.send({message: 'success'})
+    // })
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
 
