@@ -144,8 +144,7 @@ async function run() {
 
     app.patch('/users', async(req, res) => {
       const users = req.body;
-      // console.log(data);
-      // console.log(data?.name, data?.email);
+   
       const query = {email: users?.email};
       const updatedDoc = {
         $set: {
@@ -161,7 +160,7 @@ async function run() {
 
     // Get All Trainer
 
-    app.get('/trainer', async (req, res) => {
+   app.get('/trainer', async (req, res) => {
 
       const result = await trainerCollection.find().toArray();
       res.send(result);
@@ -193,7 +192,7 @@ async function run() {
       const id = req.params.id;
       const emailQuery = { email: req.query.email };
 
-      // console.log('in delete',id, email);
+   
       const updatedDoc = {
         $set: {
           role: 'member'
