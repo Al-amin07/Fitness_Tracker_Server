@@ -56,6 +56,7 @@ async function run() {
     const paymentCollection = client.db('fitness').collection('payments');
     const subscriptionCollection = client.db('fitness').collection('subscriptions');
     const testimonialCollection = client.db('fitness').collection('testimonials');
+    const userBookedCollection = client.db('fitness').collection('userBookeds');
 
     // Verify Admin 
 
@@ -340,7 +341,7 @@ async function run() {
 
     app.post('/applied-trainers', verifyToken, async (req, res) => {
       const user = req.body;
-      // console.log('applied ', user);
+      console.log('applied ', user);
       const result = await appliedTrainerCollection.insertOne(user);
       res.send(result)
       // res.send({success: true})
@@ -517,9 +518,10 @@ async function run() {
     })
 
     app.post('/payments', async (req, res) => {
-      const { payment, bookedDetails, trainer } = req.body;
+      const { payment, bookedDetails, trainer, userBooked } = req.body;
 
-  const paymentResult = await paymentCollection.insertOne(payment)
+  const paymentResult = await paymentCollection.insertOne(payment);
+  const bookedUser = await userBookedCollection.insertOne(userBooked)
 
 
       // Class
