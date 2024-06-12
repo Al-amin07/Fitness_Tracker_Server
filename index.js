@@ -139,8 +139,16 @@ async function run() {
 
     app.post('/user', async (req, res) => {
       const user = req.body;
-      const result = await userCollection.insertOne(user);
-      res.send(result)
+      const email = user?.email;
+      const query = { email}
+      const currentUser = await userCollection.findOne(query);
+      console.log('in User ',currentUser);
+      if(!currentUser){
+        const result = await userCollection.insertOne(user);
+        res.send(result)
+      }
+  
+     
     })
 
     app.patch('/users', async(req, res) => {
@@ -516,6 +524,14 @@ async function run() {
     })
 
     // Payment
+
+    app.get('/user-payment/:email', async(req, res) => {
+      const email = req.params.email;
+      const query = {email};
+      const result = await paymentCollection.find(query).toArray();
+      res.send(result)
+    })
+
     app.post('/create-payment-intent', verifyToken, async (req, res) => {
       const { price } = req.body;
 
