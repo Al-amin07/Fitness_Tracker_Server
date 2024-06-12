@@ -443,6 +443,12 @@ async function run() {
       res.send(result)
     })
 
+    app.post('/reviews',verifyToken, async(req, res) => {
+      const reviews = req.body;
+      const result = await testimonialCollection.insertOne(reviews);
+      res.send(result);
+    })
+
     // Admin DashBoard 
 
     app.get('/admin-data',verifyToken, verifyAdmin, async(req, res) => {
@@ -498,6 +504,15 @@ async function run() {
         uniqueUserCount,
         uniqueSubsCount
       })
+    })
+
+    // User Booked
+
+    app.get('/user-booked/:email',verifyToken, async(req, res) => {
+          const email = req.params.email;
+          const query = {userEmail: email};
+          const result = await userBookedCollection.findOne(query);
+          res.send(result)
     })
 
     // Payment
